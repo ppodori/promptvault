@@ -18,6 +18,17 @@
   --card-shadow-hover: 0 8px 24px rgba(0,0,0,.5); color-scheme: dark;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+[data-theme="light"] {
+  --bg-deep: #f4f4f5; --bg-base: #f4f4f5; --bg-card: #ffffff; --bg-elevated: #e4e4e7;
+  --bg-input: #ffffff; --border: #d4d4d8; --border-hover: #a1a1aa;
+  --text-primary: #18181b; --text-secondary: #52525b; --text-muted: #71717a;
+  --accent: #3b82f6; --accent-hover: #2563eb; --star-gold: #ca8a04; --star-gold-hover: #eab308;
+  --negative: #71717a; --danger: #dc2626; --shadow-modal: 0 32px 100px rgba(0,0,0,.15);
+  --card-memo: #52525b; --card-shadow: 0 1px 4px rgba(0,0,0,.06);
+  --card-shadow-hover: 0 8px 24px rgba(0,0,0,.1); color-scheme: light;
+  --header-bg: rgba(244, 244, 245, 0.85);
+  --danger-bg: #fef2f2; --danger-bg-deep: #fee2e2; --danger-border: #fca5a5;
+}
 
 html { overflow-x: hidden; }
 html:has(.overlay:not(.hidden)) { overflow: hidden; }
@@ -31,6 +42,23 @@ body {
 ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; border: 2px solid var(--bg-deep); }
 ::-webkit-scrollbar-thumb:hover { background: #71717a; }
 
+
+[data-theme="light"] .overlay { background: rgba(0,0,0,.3); }
+[data-theme="light"] .modal { border-color: var(--border); box-shadow: 0 10px 40px rgba(0,0,0,.12); }
+[data-theme="light"] .card { border: 1px solid var(--border); }
+[data-theme="light"] .tag-group-divider { background: rgba(0,0,0,.03); }
+[data-theme="light"] .tag-group-divider .tag { background: rgba(0,0,0,.04); }
+[data-theme="light"] .btn-primary { box-shadow: 0 4px 12px rgba(37,99,235,.2); border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .search-wrap { border-color: var(--border); background: var(--bg-card); }
+[data-theme="light"] .detail-hero-nav { background: rgba(0,0,0,.3); }
+[data-theme="light"] .detail-hero-nav:hover { background: rgba(0,0,0,.5); }
+[data-theme="light"] .lock-card { background: rgba(255,255,255,.8); border-color: var(--border); box-shadow: 0 10px 40px rgba(0,0,0,.1); }
+[data-theme="light"] .lock-input { background: rgba(0,0,0,.04); }
+[data-theme="light"] .lock-btn { border-color: rgba(0,0,0,.1); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #a1a1aa; border-color: var(--bg-deep); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+[data-theme="light"] .grok-logo { box-shadow: 0 2px 10px rgba(59,130,246,.2); }
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
@@ -39,7 +67,7 @@ body {
 .header {
   position: sticky; top: 0; z-index: 50;
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  background: rgba(9, 9, 11, 0.8);
+  background: var(--header-bg, rgba(9, 9, 11, 0.8));
   border-bottom: 1px solid var(--border);
   transition: transform .35s cubic-bezier(.4,0,.2,1);
 }
@@ -95,15 +123,35 @@ body {
 }
 .nav-filter-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
 .nav-filter-btn.active { color: var(--accent); background: rgba(59,130,246,.1); }
-.nav-sort {
-  appearance: none; background: none; border: 1px solid var(--border);
-  border-radius: 20px; padding: 6px 28px 6px 14px; font-size: 12.5px;
+.sort-dropdown { position: relative; user-select: none; }
+.sort-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px; font-size: 12.5px;
   color: var(--text-secondary); cursor: pointer; font-family: var(--font);
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234a5568' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 8px center; transition: all .15s;
+  transition: all .15s; white-space: nowrap;
 }
-.nav-sort:hover { border-color: var(--border-hover); color: var(--text-primary); }
-.nav-sort:focus { outline: none; border-color: var(--accent); }
+.sort-trigger:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.sort-trigger.open { border-color: var(--accent); color: var(--text-primary); }
+.sort-trigger svg { transition: transform .2s; flex-shrink: 0; }
+.sort-trigger.open svg { transform: rotate(180deg); }
+.sort-menu {
+  position: fixed; z-index: 60;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 4px; min-width: 130px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  opacity: 0; transform: translateY(-4px) scale(.97); pointer-events: none;
+  transition: opacity .15s, transform .15s;
+}
+.sort-menu.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.sort-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px; font-size: 12.5px;
+  color: var(--text-secondary); cursor: pointer; transition: all .1s; border: none; background: none; width: 100%; font-family: var(--font);
+}
+.sort-opt:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.sort-opt.active { color: var(--accent); font-weight: 600; }
+.sort-opt.active::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
 
 .btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -141,9 +189,9 @@ body {
 .search-exec-btn:hover { background: var(--accent-hover); box-shadow: 0 2px 8px rgba(59,130,246,.35); }
 .search-exec-btn svg { position: static; transform: none; color: #fff; pointer-events: none; display: block; }
 /* Tags area */
-.tags-filter-wrap { padding: 8px 24px 10px; position: relative; overflow: hidden; border-top: 1px solid var(--border); }
+.tags-filter-wrap { padding: 10px 24px 12px; position: relative; overflow: hidden; border-top: 1px solid var(--border); }
 .tags-filter-wrap:has(.tags-expanded) { overflow: visible; }
-.tags-filter { display: flex; flex-wrap: wrap; gap: 7px; max-height: 36px; overflow: hidden; transition: max-height .3s ease; }
+.tags-filter { display: flex; flex-wrap: wrap; gap: 7px; max-height: 44px; overflow: hidden; transition: max-height .3s ease; }
 .tags-filter.tags-expanded { max-height: 600px; overflow: visible; }
 .tags-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 5px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 500; cursor: pointer; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border); transition: all .15s; white-space: nowrap; user-select: none; margin-top: 7px; }
 .tags-toggle:hover { color: var(--text-secondary); border-color: var(--border-hover); background: var(--bg-card); }
@@ -442,7 +490,7 @@ body {
 @media (max-width: 600px) {
   .header-top { padding: 10px 14px; gap: 8px; flex-wrap: wrap; }
   .header-nav { padding: 0 14px; gap: 0; }
-  .tags-filter-wrap { padding: 8px 14px 10px; }
+  .tags-filter-wrap { padding: 10px 14px 12px; }
   .main { padding: 18px 14px calc(60px + env(safe-area-inset-bottom, 0px)); }
   .grid { grid-template-columns: 1fr; gap: 14px; }
   .logo { font-size: 16px; }
@@ -497,6 +545,29 @@ body {
 .detail-memo::placeholder { color: var(--text-muted); opacity: .6; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── Theme Toggle ──
+function getThemePref(){return localStorage.getItem('gv-theme')||'system'}
+function getSystemTheme(){return window.matchMedia('(prefers-color-scheme:light)').matches?'light':'dark'}
+function applyTheme(pref){
+  const theme=pref==='system'?getSystemTheme():pref;
+  document.documentElement.setAttribute('data-theme',theme);
+  const icon=document.getElementById('themeIcon');
+  if(icon)icon.innerHTML=theme==='dark'
+    ?'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+    :'<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+}
+function toggleTheme(){
+  const cur=getThemePref();
+  const next=cur==='dark'?'light':cur==='light'?'system':'dark';
+  localStorage.setItem('gv-theme',next);
+  applyTheme(next);
+  const labels={dark:'다크 모드',light:'라이트 모드',system:'시스템 설정'};
+  if(typeof toast==='function')toast(labels[next]);
+}
+window.matchMedia('(prefers-color-scheme:light)').addEventListener('change',()=>{if(getThemePref()==='system')applyTheme('system')});
+applyTheme(getThemePref());
+</script>
 </head>
 <body>
 
@@ -552,6 +623,9 @@ body {
         <button class="search-exec-btn" onclick="render()" title="검색"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
       </div>
       <div class="header-actions">
+        <button class="nav-tab" onclick="toggleTheme()" id="themeToggleBtn" title="테마 전환" style="padding:7px 10px;">
+          <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
         <button class="nav-tab-primary btn-text-hide" onclick="openPromptModal()" style="border:none;cursor:pointer;font-family:inherit;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span>새 프롬프트</span>
@@ -584,13 +658,19 @@ body {
         <button class="nav-filter-btn" id="previewToggleBtn" onclick="togglePreview()" title="프롬프트 미리보기">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
-        <select class="nav-sort" id="sortSelect" onchange="render()">
-          <option value="newest">최신순</option>
-          <option value="oldest">오래된순</option>
-          <option value="rating">별점순</option>
-          <option value="alpha">가나다순</option>
-          <option value="random">랜덤</option>
-        </select>
+        <div class="sort-dropdown" id="sortDropdown">
+          <button class="sort-trigger" onclick="toggleSortMenu()">
+            <span id="sortLabel">최신순</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+          <div class="sort-menu" id="sortMenu">
+            <button class="sort-opt active" data-sort="newest" onclick="pickSort('newest')">최신순</button>
+            <button class="sort-opt" data-sort="oldest" onclick="pickSort('oldest')">오래된순</button>
+            <button class="sort-opt" data-sort="rating" onclick="pickSort('rating')">별점순</button>
+            <button class="sort-opt" data-sort="alpha" onclick="pickSort('alpha')">가나다순</button>
+            <button class="sort-opt" data-sort="random" onclick="pickSort('random')">랜덤</button>
+          </div>
+        </div>
       </div>
     </div>
     <!-- Tier 3: Tags -->
@@ -806,7 +886,7 @@ body {
         </div>
       </div>
     </div>
-    <div style="border:1px solid #3a2020;background:#1e1212;border-radius:12px;padding:20px;">
+    <div style="border:1px solid var(--danger-border, #3a2020);background:var(--danger-bg, #1e1212);border-radius:12px;padding:20px;">
       <div style="display:flex;align-items:flex-start;gap:14px;">
         <div style="color:var(--danger);flex-shrink:0;margin-top:2px;">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -824,7 +904,7 @@ body {
           </div>
           <!-- Step 2: confirmation -->
           <div id="resetStep2" style="display:none;">
-            <div style="background:#2a1515;border:1px solid #4a2020;border-radius:8px;padding:14px;margin-bottom:12px;text-align:center;">
+            <div style="background:var(--danger-bg-deep, #2a1515);border:1px solid var(--danger-border, #4a2020);border-radius:8px;padding:14px;margin-bottom:12px;text-align:center;">
               <p style="font-size:14px;color:#e88;font-weight:600;margin-bottom:4px;">⚠️ 정말 초기화할까요?</p>
               <p style="font-size:12px;color:var(--text-muted);">이 작업은 되돌릴 수 없습니다</p>
             </div>
@@ -1413,7 +1493,7 @@ function compressImage(file,maxW,maxH,q){
 // ── Render ──
 function render(){
   const search=document.getElementById('searchInput').value.toLowerCase();
-  const sort=document.getElementById('sortSelect').value;
+  const sort=window._sortValue||'newest';
   let list=S.prompts.filter(p=>{
     if(S.filterFav&&!(p.rating>0))return false;
     if(S.filterTags.length&&!S.filterTags.every(tid=>(p.tagIds||[]).includes(tid)))return false;
@@ -1534,6 +1614,36 @@ function render(){
 function setFilterTag(id){if(!id){S.filterTags=[];}else{const i=S.filterTags.indexOf(id);if(i>=0)S.filterTags.splice(i,1);else S.filterTags.push(id);}render()}
 function toggleFavFilter(){S.filterFav=!S.filterFav;render()}
 function togglePreview(){S.showPreview=!S.showPreview;localStorage.setItem('gv-preview',S.showPreview);render()}
+
+// ── Custom Sort Dropdown ──
+window._sortValue='newest';
+function toggleSortMenu(){
+  const trigger=document.querySelector('.sort-trigger');
+  const menu=document.getElementById('sortMenu');
+  const isOpen=menu.classList.contains('show');
+  if(isOpen){menu.classList.remove('show');trigger.classList.remove('open');}
+  else{
+    const r=trigger.getBoundingClientRect();
+    menu.style.top=(r.bottom+6)+'px';
+    menu.style.right=(window.innerWidth-r.right)+'px';
+    menu.classList.add('show');trigger.classList.add('open');
+  }
+}
+function pickSort(val){
+  window._sortValue=val;
+  const labels={newest:'최신순',oldest:'오래된순',rating:'별점순',alpha:'가나다순',random:'랜덤'};
+  document.getElementById('sortLabel').textContent=labels[val]||val;
+  document.querySelectorAll('.sort-opt').forEach(o=>o.classList.toggle('active',o.dataset.sort===val));
+  document.getElementById('sortMenu').classList.remove('show');
+  document.querySelector('.sort-trigger').classList.remove('open');
+  render();
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.sort-dropdown')){
+    document.getElementById('sortMenu')?.classList.remove('show');
+    document.querySelector('.sort-trigger')?.classList.remove('open');
+  }
+});
 function toggleTagsFilter(){
   const tf=document.getElementById('tagsFilter');
   tf.classList.toggle('tags-expanded');
