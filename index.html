@@ -71,6 +71,7 @@ body {
   border-bottom: 1px solid var(--border);
   transition: transform .35s cubic-bezier(.4,0,.2,1);
 }
+.header:has(.tags-expanded) { position: relative; }
 .header.header-hidden { transform: translateY(-100%); pointer-events: none; }
 .header-inner { max-width: 100%; margin: 0 auto; }
 /* Tier 1: Logo + Search + Actions */
@@ -192,7 +193,7 @@ body {
 .tags-filter-wrap { padding: 10px 24px 12px; position: relative; overflow: hidden; border-top: 1px solid var(--border); }
 .tags-filter-wrap:has(.tags-expanded) { overflow: visible; }
 .tags-filter { display: flex; flex-wrap: wrap; gap: 7px; max-height: 44px; overflow: hidden; transition: max-height .3s ease; }
-.tags-filter.tags-expanded { max-height: 600px; overflow: visible; }
+.tags-filter.tags-expanded { max-height: 2000px; overflow: visible; }
 .tags-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 5px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 500; cursor: pointer; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border); transition: all .15s; white-space: nowrap; user-select: none; margin-top: 7px; }
 .tags-toggle:hover { color: var(--text-secondary); border-color: var(--border-hover); background: var(--bg-card); }
 .tags-toggle svg { transition: transform .25s; }
@@ -1496,7 +1497,7 @@ function render(){
   const sort=window._sortValue||'newest';
   let list=S.prompts.filter(p=>{
     if(S.filterFav&&!(p.rating>0))return false;
-    if(S.filterTags.length&&!S.filterTags.every(tid=>(p.tagIds||[]).includes(tid)))return false;
+    if(S.filterTags.length&&!S.filterTags.some(tid=>(p.tagIds||[]).includes(tid)))return false;
     if(search){const tagNames=S.tags.filter(t=>(p.tagIds||[]).includes(t.id)).map(t=>t.name.toLowerCase()).join(' ');return p.title.toLowerCase().includes(search)||p.text.toLowerCase().includes(search)||(p.negativeText||'').toLowerCase().includes(search)||(p.memo||'').toLowerCase().includes(search)||tagNames.includes(search);}
     return true;
   });
@@ -1664,9 +1665,10 @@ function toggleTagsFilter(){
     requestAnimationFrame(()=>{
       const y=window.scrollY;
       const dy=y-lastY;
-      if(y>HIDE_THRESHOLD && dy>SCROLL_DELTA){
+      const tagsExpanded=!!document.querySelector('.tags-filter.tags-expanded');
+      if(y>HIDE_THRESHOLD && dy>SCROLL_DELTA && !tagsExpanded){
         header.classList.add('header-hidden');
-      } else if(dy<-SCROLL_DELTA || y<=HIDE_THRESHOLD){
+      } else if(dy<-SCROLL_DELTA || y<=HIDE_THRESHOLD || tagsExpanded){
         header.classList.remove('header-hidden');
       }
       lastY=y;
