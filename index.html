@@ -2857,8 +2857,6 @@ function startCardSlideshow(){
 }
 function stopCardSlideshow(){if(_ssTimer){clearInterval(_ssTimer);_ssTimer=null;}}
 
-document.documentElement.setAttribute('data-theme','dark');
-
 // -- Scroll to Top --
 (function(){const btn=document.getElementById('scrollTopBtn');if(!btn)return;let t=false;window.addEventListener('scroll',()=>{if(t)return;t=true;requestAnimationFrame(()=>{btn.classList.toggle('visible',window.scrollY>400);t=false})},{passive:true})})();
 
