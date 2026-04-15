@@ -768,14 +768,14 @@ applyTheme(getThemePref());
         <button class="btn btn-secondary btn-sm" onclick="addFragCat()">추가</button>
       </div>
     </div>
-    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:16px;">
-    <div id="fragmentList"></div>
-    <div class="manager-add">
+    <div class="manager-add" style="margin-bottom:16px;">
       <select class="select" id="newFragCat" style="flex:0 0 100px;"></select>
       <input class="input" id="newFragName" placeholder="조각 이름" style="flex:1 1 100px;">
       <input class="input" id="newFragText" placeholder="프롬프트 텍스트" style="flex:2 1 180px;" onkeydown="if(event.key==='Enter')addFragment()">
       <button class="btn btn-primary" onclick="addFragment()">추가</button>
     </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:16px;">
+    <div id="fragmentList"></div>
   </div>
 </div>
 
@@ -2420,21 +2420,49 @@ function renderFragCatSelect(){
   document.getElementById('newFragCat').innerHTML=S.fragCats.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
 }
 
+let _editFragId=null;
 function renderFragmentList(){
   const g={};S.fragCats.forEach(c=>{g[c.name]=[]});
   S.fragments.forEach(f=>{const cat=f.category||'기타';if(!g[cat])g[cat]=[];g[cat].push(f)});
+  const catOpts=S.fragCats.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
   let h='';
   S.fragCats.forEach(cat=>{const items=g[cat.name];if(!items||!items.length)return;
     h+=`<div style="margin-bottom:14px;"><div class="frag-cat-label" style="margin-bottom:6px;"><span class="cat-dot" style="background:${cat.color}"></span>${cat.name}</div>
-    ${items.map(f=>`<div class="manager-item"><div class="manager-item-info"><div class="manager-item-name">${esc(f.name)}</div><div class="manager-item-text">${esc(f.text)}</div></div>
-    <button class="btn-ghost btn-danger" onclick="removeFragment('${f.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('')}</div>`;
+    ${items.map(f=>{
+      if(_editFragId===f.id){
+        return `<div class="manager-item"><div class="manager-item-info" style="display:flex;flex-wrap:wrap;gap:6px;">
+          <select class="input" id="editFragCat_${f.id}" style="flex:0 0 110px;">${catOpts}</select>
+          <input class="input" id="editFragName_${f.id}" value="${esc(f.name)}" style="flex:1 1 100px;">
+          <input class="input" id="editFragText_${f.id}" value="${esc(f.text)}" style="flex:2 1 180px;" onkeydown="if(event.key==='Enter')saveFragmentEdit('${f.id}')"></div>
+          <button class="btn btn-primary" onclick="saveFragmentEdit('${f.id}')">저장</button>
+          <button class="btn-ghost" onclick="cancelFragmentEdit()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+      }
+      return `<div class="manager-item"><div class="manager-item-info"><div class="manager-item-name">${esc(f.name)}</div><div class="manager-item-text">${esc(f.text)}</div></div>
+      <button class="btn-ghost" onclick="editFragment('${f.id}')" title="수정"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+      <button class="btn-ghost btn-danger" onclick="removeFragment('${f.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    }).join('')}</div>`;
   });
   document.getElementById('fragmentList').innerHTML=h;
+  if(_editFragId){
+    const f=S.fragments.find(x=>x.id===_editFragId);
+    if(f){const sel=document.getElementById('editFragCat_'+f.id);if(sel)sel.value=f.category||S.fragCats[0]?.name||''}
+  }
 }
 function addFragment(){
   const cat=document.getElementById('newFragCat').value,name=document.getElementById('newFragName').value.trim(),text=document.getElementById('newFragText').value.trim();
   if(!name||!text)return;S.fragments.push({id:uid(),category:cat,name,text});save();renderFragmentList();
   document.getElementById('newFragName').value='';document.getElementById('newFragText').value='';
+}
+function editFragment(id){_editFragId=id;renderFragmentList()}
+function cancelFragmentEdit(){_editFragId=null;renderFragmentList()}
+function saveFragmentEdit(id){
+  const f=S.fragments.find(x=>x.id===id);if(!f)return;
+  const cat=document.getElementById('editFragCat_'+id).value;
+  const name=document.getElementById('editFragName_'+id).value.trim();
+  const text=document.getElementById('editFragText_'+id).value.trim();
+  if(!name||!text){toast('이름과 내용을 입력해주세요');return}
+  f.category=cat;f.name=name;f.text=text;
+  _editFragId=null;save();renderFragmentList();
 }
 function removeFragment(id){S.fragments=S.fragments.filter(f=>f.id!==id);save();renderFragmentList()}
 
