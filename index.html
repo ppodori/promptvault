@@ -1501,7 +1501,15 @@ function render(){
     if(search){const tagNames=S.tags.filter(t=>(p.tagIds||[]).includes(t.id)).map(t=>t.name.toLowerCase()).join(' ');return p.title.toLowerCase().includes(search)||p.text.toLowerCase().includes(search)||(p.negativeText||'').toLowerCase().includes(search)||(p.memo||'').toLowerCase().includes(search)||tagNames.includes(search);}
     return true;
   });
-  if(sort==='random'){for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]]}}
+  if(sort==='random'){
+    if(!window._randomOrder)window._randomOrder=shuffleIds(S.prompts.map(p=>p.id));
+    const idx=new Map(window._randomOrder.map((id,i)=>[id,i]));
+    list.sort((a,b)=>{
+      const ia=idx.has(a.id)?idx.get(a.id):Infinity;
+      const ib=idx.has(b.id)?idx.get(b.id):Infinity;
+      return ia-ib;
+    });
+  }
   else list.sort((a,b)=>{if(sort==='newest')return(b.modifiedAt||b.createdAt||0)-(a.modifiedAt||a.createdAt||0);if(sort==='oldest')return(a.modifiedAt||a.createdAt||0)-(b.modifiedAt||b.createdAt||0);if(sort==='rating')return(b.rating||0)-(a.rating||0);return a.title.localeCompare(b.title,'ko')});
 
   const syncDot=document.getElementById('syncDot');
@@ -1618,6 +1626,7 @@ function togglePreview(){S.showPreview=!S.showPreview;localStorage.setItem('gv-p
 
 // ── Custom Sort Dropdown ──
 window._sortValue='newest';
+function shuffleIds(ids){const a=ids.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function toggleSortMenu(){
   const trigger=document.querySelector('.sort-trigger');
   const menu=document.getElementById('sortMenu');
@@ -1632,6 +1641,8 @@ function toggleSortMenu(){
 }
 function pickSort(val){
   window._sortValue=val;
+  if(val==='random')window._randomOrder=shuffleIds(S.prompts.map(p=>p.id));
+  else window._randomOrder=null;
   const labels={newest:'최신순',oldest:'오래된순',rating:'별점순',alpha:'가나다순',random:'랜덤'};
   document.getElementById('sortLabel').textContent=labels[val]||val;
   document.querySelectorAll('.sort-opt').forEach(o=>o.classList.toggle('active',o.dataset.sort===val));
