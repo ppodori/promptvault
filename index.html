@@ -545,6 +545,7 @@ body {
 .detail-memo:focus { border-color: var(--accent); }
 .detail-memo::placeholder { color: var(--text-muted); opacity: .6; }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── Theme Toggle ──
@@ -580,16 +581,23 @@ applyTheme(getThemePref());
         <svg fill="var(--text-primary)" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 512 510"><path d="M213.235 306.019l178.976-180.002v.169l51.695-51.763c-.924 1.32-1.86 2.605-2.785 3.89-39.281 54.164-58.46 80.649-43.07 146.922l-.09-.101c10.61 45.11-.744 95.137-37.398 131.836-46.216 46.306-120.167 56.611-181.063 14.928l42.462-19.675c38.863 15.278 81.392 8.57 111.947-22.03 30.566-30.6 37.432-75.159 22.065-112.252-2.92-7.025-11.67-8.795-17.792-4.263l-124.947 92.341zm-25.786 22.437l-.033.034L68.094 435.217c7.565-10.429 16.957-20.294 26.327-30.149 26.428-27.803 52.653-55.359 36.654-94.302-21.422-52.112-8.952-113.177 30.724-152.898 41.243-41.254 101.98-51.661 152.706-30.758 11.23 4.172 21.016 10.114 28.638 15.639l-42.359 19.584c-39.44-16.563-84.629-5.299-112.207 22.313-37.298 37.308-44.84 102.003-1.128 143.81z"/></svg>
       </div>
       <div class="lock-title">Prompt Vault</div>
-      <div class="lock-sub">암호화 키를 입력하세요</div>
+      <div class="lock-sub" id="lockSub">Google 계정으로 로그인</div>
     </div>
-    <div class="lock-input-wrap">
-      <input type="password" class="lock-input" id="lockPassword" placeholder="비밀번호" autocomplete="current-password" autofocus>
-      <button class="lock-toggle-pw" onclick="toggleLockPw()" tabindex="-1">
-        <svg id="lockEyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
+    <div id="lockGoogleSection">
+      <div id="gsiButton" style="display:flex;justify-content:center;margin-bottom:10px;min-height:44px;"></div>
+      <div style="font-size:11px;color:var(--text-muted);text-align:center;line-height:1.5;">허용된 Google 계정만 접근 가능합니다</div>
     </div>
-    <button class="lock-btn" id="lockBtn" onclick="submitPassword()">잠금 해제</button>
-    <label class="lock-remember"><input type="checkbox" id="lockRemember" checked> 이 기기에서 비밀번호 기억</label>
+    <div id="lockPasswordSection" style="display:none;">
+      <div id="lockGoogleStatus" style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg><span id="lockGoogleEmail"></span></div>
+      <div class="lock-input-wrap">
+        <input type="password" class="lock-input" id="lockPassword" placeholder="비밀번호" autocomplete="current-password">
+        <button class="lock-toggle-pw" onclick="toggleLockPw()" tabindex="-1">
+          <svg id="lockEyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button class="lock-btn" id="lockBtn" onclick="submitPassword()">잠금 해제</button>
+      <label class="lock-remember"><input type="checkbox" id="lockRemember" checked> 이 기기에서 비밀번호 기억</label>
+    </div>
     <div class="lock-error" id="lockError"></div>
   </div>
 </div>
@@ -958,8 +966,89 @@ applyTheme(getThemePref());
 
 <script>
 // ── Cloud Config ──
-// 아래 URL을 Apps Script 배포 URL로 교체하세요
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNm8BeN1Dl8YOlNz7LDON71mIc0MJfsghvcM0STE4AP23b47m-JmBNoHpypXnfrjBxgA/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9Hx7hEy8KzK00E8BK28Ur245rJHpJC-s1ZDG9Exq38-KVlX4YdKpPhqz82HqzbzXw/exec';
+const GOOGLE_CLIENT_ID = '198322834119-7j30mgijs9cu4i6djvf9702sfpdfbomf.apps.googleusercontent.com';
+
+// ── Google OAuth (ID Token) ──
+let _idToken = null;
+let _idTokenExp = 0;
+let _gisInitialized = false;
+let _gisReadyPromise = null;
+let _authCallbackQueue = [];
+
+function _waitForGis() {
+  if (_gisReadyPromise) return _gisReadyPromise;
+  _gisReadyPromise = new Promise((resolve, reject) => {
+    let elapsed = 0;
+    const check = () => {
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.id) return resolve();
+      elapsed += 80;
+      if (elapsed > 15000) return reject(new Error('GIS load timeout'));
+      setTimeout(check, 80);
+    };
+    check();
+  });
+  return _gisReadyPromise;
+}
+
+function _parseJwt(jwt) {
+  try {
+    const p = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = p + '='.repeat((4 - p.length % 4) % 4);
+    return JSON.parse(atob(padded));
+  } catch { return {}; }
+}
+
+function _onGoogleCredential(response) {
+  _idToken = response.credential;
+  const payload = _parseJwt(response.credential);
+  _idTokenExp = (payload.exp || 0) * 1000;
+  const queue = _authCallbackQueue; _authCallbackQueue = [];
+  queue.forEach(cb => { try { cb(response.credential, payload); } catch (e) { console.error(e); } });
+}
+
+async function _initGis() {
+  await _waitForGis();
+  if (_gisInitialized) return;
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: _onGoogleCredential,
+    auto_select: true,
+    use_fedcm_for_prompt: true,
+    itp_support: true
+  });
+  _gisInitialized = true;
+}
+
+function _renderGoogleButton(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || !_gisInitialized) return;
+  el.innerHTML = '';
+  try {
+    google.accounts.id.renderButton(el, {
+      theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'outline' : 'filled_black',
+      size: 'large', type: 'standard', text: 'signin_with', shape: 'rectangular',
+      logo_alignment: 'left', width: 280
+    });
+  } catch (e) { console.warn('GIS renderButton failed:', e); }
+}
+
+async function ensureIdToken(interactive) {
+  await _initGis();
+  if (_idToken && Date.now() < _idTokenExp - 60000) return _idToken;
+  if (!interactive) throw new Error('auth-required');
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const cb = (tok) => { if (finished) return; finished = true; clearTimeout(timer); resolve(tok); };
+    const timer = setTimeout(() => {
+      if (finished) return; finished = true;
+      _authCallbackQueue = _authCallbackQueue.filter(x => x !== cb);
+      reject(new Error('auth-timeout'));
+    }, 60000);
+    _authCallbackQueue.push(cb);
+    try { google.accounts.id.prompt(); } catch {}
+  });
+}
 
 // ── 이미지 암호화 키 (비밀번호 잠금 화면에서 입력받음) ──
 let ENCRYPT_KEY = '';
@@ -1318,11 +1407,29 @@ function encAttr(url) {
 }
 
 async function api(action, body) {
-  const url = SCRIPT_URL + '?action=' + encodeURIComponent(action);
-  const opts = body ? { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(body) } : {};
-  const res = await fetch(url, opts);
+  const needsAuth = action !== 'ping';
+  let idToken = null;
+  if (needsAuth) idToken = await ensureIdToken(true);
+  const payload = Object.assign({ action }, body || {});
+  if (idToken) payload.idToken = idToken;
+  const doFetch = () => fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  });
+  let res = await doFetch();
   if (!res.ok) throw new Error('Network error: ' + res.status);
-  return res.json();
+  let data = await res.json();
+  if (data && data.code === 401 && needsAuth) {
+    // 토큰 만료/무효 — 한 번 재인증 후 재시도
+    _idToken = null; _idTokenExp = 0;
+    payload.idToken = await ensureIdToken(true);
+    res = await doFetch();
+    if (!res.ok) throw new Error('Network error: ' + res.status);
+    data = await res.json();
+    if (data && data.code === 401) throw new Error('unauthorized-account');
+  }
+  return data;
 }
 
 function setSyncState(state) {
@@ -2560,6 +2667,8 @@ function lockApp(){
   localStorage.removeItem('gv-pwSaved');
   localStorage.removeItem('gv-pwHash');
   ENCRYPT_KEY='';_derivedKey=null;
+  _idToken=null;_idTokenExp=0;
+  try { google.accounts.id.disableAutoSelect(); } catch {}
   location.reload();
 }
 function showResetConfirm(){document.getElementById('resetStep1').style.display='none';document.getElementById('resetStep2').style.display=''}
@@ -2705,7 +2814,18 @@ async function submitPassword(){
     document.getElementById('loadingScreen').style.display='none';
     document.getElementById('lockScreen').style.display='flex';
     ENCRYPT_KEY='';_derivedKey=null;
-    err.textContent='오류가 발생했습니다. 다시 시도해주세요.';
+    if (e.message === 'unauthorized-account') {
+      err.textContent='이 Google 계정은 접근 권한이 없습니다. 다른 계정으로 다시 로그인해주세요.';
+      // Revert to Google section so user can re-auth
+      document.getElementById('lockPasswordSection').style.display='none';
+      document.getElementById('lockGoogleSection').style.display='';
+      _idToken=null;_idTokenExp=0;
+      try { google.accounts.id.disableAutoSelect(); } catch {}
+    } else if (e.message === 'auth-timeout') {
+      err.textContent='Google 로그인 시간이 초과되었어요. 다시 시도해주세요.';
+    } else {
+      err.textContent='오류가 발생했습니다. 다시 시도해주세요.';
+    }
     err.style.display='';
     btn.disabled=false;btn.textContent='잠금 해제';
     document.getElementById('lockPassword').select();
@@ -2717,50 +2837,87 @@ document.getElementById('lockPassword').addEventListener('keydown',e=>{
   if(e.key==='Enter')submitPassword();
 });
 
-// Auto-fill if remembered (skip lock screen)
-(async function checkRemembered(){
-  const savedHash=localStorage.getItem('gv-pwHash');
-  const savedPw=localStorage.getItem('gv-pwSaved');
-  if(savedPw && savedHash){
-    const h=await hashPassword(savedPw);
-    if(h===savedHash){
-      ENCRYPT_KEY=savedPw;
-      _derivedKey=null;
-      // Verify token before auto-login
-      const isCloud = SCRIPT_URL && !SCRIPT_URL.startsWith('여기에');
-      if(isCloud){
-        try{
-          const config=await api('loadConfig');
-          if(config.verifyToken){
-            const dec=await decryptToken(config.verifyToken);
-            if(dec!==VERIFY_TOKEN_TEXT){
-              // Saved password no longer valid
-              localStorage.removeItem('gv-pwSaved');
-              localStorage.removeItem('gv-pwHash');
-              ENCRYPT_KEY='';_derivedKey=null;
-              document.getElementById('lockScreen').style.display='flex';
-              return;
-            }
-            _verifyToken=config.verifyToken;
-          }
-        }catch(e){
-          // Network error — proceed with saved password
-          console.warn('Auto-login config check failed:',e);
-        }
+// ── Lock Screen Flow: Google auth 먼저, 그 다음 비밀번호 ──
+async function _handleGoogleCredentialForLock(token, payload){
+  const email = payload.email || '';
+  const errEl = document.getElementById('lockError');
+  if (errEl) errEl.style.display = 'none';
+
+  // 백엔드에 즉시 권한 확인 — 비밀번호 화면으로 넘어가기 전에 거부 포착
+  const sub = document.getElementById('lockSub');
+  if (sub) sub.textContent = '권한 확인 중...';
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'loadConfig', idToken: token })
+    });
+    const data = await res.json();
+    if (data && data.code === 401) {
+      // 허용되지 않은 Google 계정
+      if (errEl) {
+        errEl.textContent = '이 Google 계정(' + email + ')은 접근 권한이 없어요. 다른 계정으로 다시 로그인해주세요.';
+        errEl.style.display = '';
       }
-      document.getElementById('lockScreen').style.display='none';
-      document.getElementById('loadingScreen').style.display='flex';
-      try{ await startApp(); }catch(e){
-        console.error('Auto-login failed:',e);
-        localStorage.removeItem('gv-pwSaved');
-        location.reload();
-      }
+      if (sub) sub.textContent = 'Google 계정으로 로그인';
+      _idToken = null; _idTokenExp = 0;
+      // 섹션 상태 명시적 리셋
+      document.getElementById('lockGoogleSection').style.display = '';
+      document.getElementById('lockPasswordSection').style.display = 'none';
+      try { google.accounts.id.disableAutoSelect(); } catch {}
+      // 다음 로그인 시도를 위해 콜백 재등록
+      _authCallbackQueue.push(_handleGoogleCredentialForLock);
       return;
     }
+  } catch (e) {
+    console.warn('백엔드 권한 확인 실패, 진행:', e);
+    // 네트워크 오류면 그냥 진행 (submitPassword에서 처리)
   }
-  // Show lock screen
-  document.getElementById('lockScreen').style.display='flex';
-})();
+
+  // 권한 OK — 비밀번호 섹션으로 전환
+  document.getElementById('lockGoogleSection').style.display = 'none';
+  document.getElementById('lockPasswordSection').style.display = '';
+  const emailEl = document.getElementById('lockGoogleEmail');
+  if (emailEl) emailEl.textContent = email;
+  if (sub) sub.textContent = '암호화 키를 입력하세요';
+
+  // 저장된 비밀번호 있으면 자동 제출
+  const savedHash = localStorage.getItem('gv-pwHash');
+  const savedPw = localStorage.getItem('gv-pwSaved');
+  if (savedPw && savedHash) {
+    try {
+      const h = await hashPassword(savedPw);
+      if (h === savedHash) {
+        document.getElementById('lockPassword').value = savedPw;
+        submitPassword();
+        return;
+      }
+      localStorage.removeItem('gv-pwSaved');
+      localStorage.removeItem('gv-pwHash');
+    } catch {}
+  }
+  document.getElementById('lockPassword').focus();
+}
+
+async function initLockFlow(){
+  document.getElementById('lockScreen').style.display = 'flex';
+  try {
+    await _initGis();
+    _authCallbackQueue.push(_handleGoogleCredentialForLock);
+    _renderGoogleButton('gsiButton');
+    // Silent one-tap 시도 (로그인 세션 있으면 자동으로 콜백 실행)
+    try { google.accounts.id.prompt(); } catch {}
+  } catch (e) {
+    console.error('Google 로그인 초기화 실패:', e);
+    const err = document.getElementById('lockError');
+    if (err) {
+      err.textContent = 'Google 로그인 라이브러리를 불러올 수 없어요. 인터넷 연결을 확인하세요.';
+      err.style.display = '';
+    }
+  }
+}
+
+initLockFlow();
 
 // ── Init ──
 async function startApp(){
